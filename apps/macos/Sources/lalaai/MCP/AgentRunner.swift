@@ -57,8 +57,11 @@ final class AgentRunner: @unchecked Sendable {
         p.standardError = FileHandle.nullDevice
         p.standardInput = FileHandle.nullDevice
         try? p.run()
-        p.waitUntilExit()
-        let s = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        // Never use waitUntilExit() here: it spins the run loop, which can re-enter this lazy static
+        // on the main thread ("trying to lock recursively" crash). Read to EOF, then poll.
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        while p.isRunning { usleep(2_000) }
+        let s = String(decoding: data, as: UTF8.self)
         let path = s.components(separatedBy: "__P__").last?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let extra = ["\(NSHomeDirectory())/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "\(NSHomeDirectory())/.bun/bin"]
         return ([path] + extra + ["/usr/bin", "/bin"]).filter { !$0.isEmpty }.joined(separator: ":")
@@ -195,7 +198,7 @@ final class AgentRunner: @unchecked Sendable {
         p.standardInput = FileHandle.nullDevice
         guard (try? p.run()) != nil else { return false }
         let help = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        p.waitUntilExit()
+        while p.isRunning { usleep(2_000) } // not waitUntilExit(): see loginPath
         return help.contains("--ignore-user-config")
     }()
 

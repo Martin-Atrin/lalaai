@@ -103,6 +103,8 @@ final class AppModel: MCPContext {
         if config.relayURL == "http://localhost:8787", let ip = Lang.lanIP() { config.relayURL = "http://\(ip):8787" }
         config.applyEnvironment()
         panels.model = self
+        // Resolve the login-shell PATH off the main thread before anything needs it (agent CLIs, uv).
+        DispatchQueue.global(qos: .userInitiated).async { _ = AgentRunner.loginPath }
         startMCP()
         if !CommandLine.arguments.contains("--autolive") { hotKeys.register([
             (kVK_ANSI_M, { [weak self] in Task { await self?.toggleTranscription() } }),
