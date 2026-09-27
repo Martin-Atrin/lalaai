@@ -1,0 +1,16 @@
+{
+  "name": "lalaai",
+  "private": true,
+  "description": "La Laai — melt the language barrier, break the ice. Live on-device captions, translated Q&A and icebreakers for meetups.",
+  "license": "MIT",
+  "scripts": {
+    "relay": "bun web/relay/src/server.ts",
+    "relay:dev": "bun --watch web/relay/src/server.ts",
+    "pwa:dev": "pnpm -C web/pwa dev",
+    "pwa:build": "pnpm -C web/pwa build",
+    "mac:build": "apps/macos/build-app.sh",
+    "mac:open": "open apps/macos/build/lalaai.app",
+    "test": "cd web/relay && bun test",
+    "e2e": "bun scripts/e2e-desktop.ts && bun scripts/e2e-questions.ts && bun scripts/e2e-transcript.ts"
+  }
+}

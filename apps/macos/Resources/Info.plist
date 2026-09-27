@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>lalaai</string>
+  <key>CFBundleDisplayName</key><string>La Laai</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIdentifier</key><string>dev.lalaai.presenter</string>
+  <key>CFBundleExecutable</key><string>lalaai</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>26.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSMicrophoneUsageDescription</key><string>lalaai transcribes your talk on-device so your audience can read it live in their language.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>lalaai connects to the relay server that sends your captions to the audience's phones.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>lalaai uses on-device speech recognition to caption your talk.</string>
+</dict>
+</plist>

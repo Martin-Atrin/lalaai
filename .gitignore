@@ -1,0 +1,17 @@
+# deps & builds
+node_modules/
+dist/
+.build/
+apps/macos/build/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+.swiftpm/
+# python helper env
+.venv/
+__pycache__/
+# misc
+.DS_Store
+*.log
+.env
+.env.*

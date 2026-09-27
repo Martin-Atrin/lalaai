@@ -1,0 +1,10 @@
+[project]
+name = "lalaai-translator"
+version = "0.1.0"
+description = "On-device NLLB-200 translation sidecar for La Laai (languages Apple Translation lacks)"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "ctranslate2>=4.4",
+  "sentencepiece>=0.2",
+  "huggingface-hub>=0.24",
+]
