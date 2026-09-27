@@ -1,3 +1,4 @@
+import { Icon, type IconName } from "./components/Icon";
 import { useEffect, useState } from "preact/hooks";
 import type { RoomInfo } from "@shared/protocol";
 import { getIdentity } from "./identity";
@@ -106,7 +107,7 @@ function Header() {
             {r.live ? t("live") : t("offline")}
           </span>
           <span class="count-pill" aria-label={t("here", { n: r.attendeeCount })}>
-            👥 {r.attendeeCount}
+            <Icon name="users" size={14} /> {r.attendeeCount}
           </span>
         </div>
       </div>
@@ -119,10 +120,10 @@ function Header() {
   );
 }
 
-const TABS: { id: Tab; icon: string; label: () => string }[] = [
-  { id: "live", icon: "🎙️", label: () => t("tabLive") },
-  { id: "qa", icon: "💬", label: () => t("tabQA") },
-  { id: "meet", icon: "🤝", label: () => t("tabMeet") },
+const TABS: { id: Tab; icon: IconName; label: () => string }[] = [
+  { id: "live", icon: "mic", label: () => t("tabLive") },
+  { id: "qa", icon: "chat", label: () => t("tabQA") },
+  { id: "meet", icon: "handshake", label: () => t("tabMeet") },
 ];
 
 function TabBar() {
@@ -138,7 +139,7 @@ function TabBar() {
           onClick={() => (tab.value = x.id)}
         >
           <span class="tab-icon" aria-hidden="true">
-            {x.icon}
+            <Icon name={x.icon} size={22} strokeWidth={cur === x.id ? 2.3 : 1.8} />
             {x.id === "meet" && pending > 0 && <span class="tab-badge">{pending}</span>}
           </span>
           <span class="tab-label">
@@ -149,7 +150,7 @@ function TabBar() {
       ))}
       <button class="tab" onClick={() => (settingsOpen.value = true)} aria-haspopup="dialog">
         <span class="tab-icon" aria-hidden="true">
-          ⚙️
+          <Icon name="settings" size={22} strokeWidth={1.8} />
         </span>
         <span class="tab-label">{t("tabSettings")}</span>
       </button>

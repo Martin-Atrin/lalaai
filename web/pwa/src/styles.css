@@ -1637,3 +1637,48 @@ a {
   color: var(--ink);
   overflow-wrap: anywhere;
 }
+
+/* ───────────────────────── outline icons ───────────────────────── */
+.icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex: none;
+}
+.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tab-icon .icon {
+  vertical-align: middle;
+}
+.count-pill,
+.badge,
+.chip-btn,
+.seg-ctl button,
+.status-chip,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.like .icon {
+  transition: transform 0.15s ease;
+}
+.like.on .icon {
+  color: var(--heart);
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spot-eyes {
+  color: var(--accent);
+  display: inline-flex;
+}
+.anon-toggle .icon {
+  vertical-align: middle;
+}

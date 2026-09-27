@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { completeNameGate, editingProfile, nameGate, room, updateProfile, you } from "../store";
 import { setUiLang, t } from "../i18n";
@@ -46,7 +47,7 @@ export function Onboarding() {
       <div class="onb-inner">
         {editing && (
           <button class="icon-btn onb-close" onClick={cancel} aria-label={t("close")}>
-            ✕
+            <Icon name="x" size={18} />
           </button>
         )}
         {step === 0 ? (
@@ -152,7 +153,7 @@ export function Onboarding() {
             </label>
 
             <label class="field">
-              <span class="field-label">👀 {t("spotMe")}</span>
+              <span class="field-label with-icon"><Icon name="eye" size={15} /> {t("spotMe")}</span>
               <input
                 class="input"
                 value={spotMe}
@@ -161,7 +162,7 @@ export function Onboarding() {
                 placeholder={t("spotMePh")}
                 onInput={(e) => setSpotMe((e.target as HTMLInputElement).value)}
               />
-              <span class="field-help">🔒 {t("spotMeHint")}</span>
+              <span class="field-help with-icon"><Icon name="lock" size={12} /> {t("spotMeHint")}</span>
             </label>
 
             <label class="field">
@@ -174,7 +175,7 @@ export function Onboarding() {
                 placeholder={t("contactPh")}
                 onInput={(e) => setContact((e.target as HTMLInputElement).value)}
               />
-              <span class="field-help">🔒 {t("contactHint")}</span>
+              <span class="field-help with-icon"><Icon name="lock" size={12} /> {t("contactHint")}</span>
             </label>
 
               </>

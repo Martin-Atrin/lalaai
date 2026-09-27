@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import type { MatchView, Profile } from "@shared/protocol";
 import { meet, peerState, requestMeet, respondMeet, room, you } from "../store";
 import { t, displayName } from "../i18n";
@@ -19,7 +20,7 @@ function PersonRow({ p, questionId }: { p: Profile; questionId: string }) {
         </button>
       ) : (
         <span class={`status-chip ${st}`}>
-          {st === "matched" ? `🤝 ${t("matched")}` : st === "incoming" ? `📨 ${t("requests")}` : `✓ ${t("requested")}`}
+          {st === "matched" ? <><Icon name="handshake" size={14} /> {t("matched")}</> : st === "incoming" ? <><Icon name="inbox" size={14} /> {t("requests")}</> : <><Icon name="check" size={14} /> {t("requested")}</>}
         </span>
       )}
     </li>
@@ -66,7 +67,7 @@ function MatchCard({ m }: { m: MatchView }) {
       </header>
       {m.peer.spotMe && (
         <div class="spot">
-          <span class="spot-eyes" aria-hidden="true">👀</span>
+          <span class="spot-eyes" aria-hidden="true"><Icon name="eye" size={26} /></span>
           <div>
             <div class="muted small">{t("spotThem")}</div>
             <div class="spot-val" dir="auto">{m.peer.spotMe}</div>
@@ -79,11 +80,11 @@ function MatchCard({ m }: { m: MatchView }) {
         <q dir="auto">{m.questionText}</q>
       </div>
       <div class="ice">
-        <div class="ice-title">🧊 {t("icebreakers")}</div>
+        <div class="ice-title with-icon"><Icon name="snowflake" size={16} /> {t("icebreakers")}</div>
         {m.icebreakerSource === "pending" ? (
           <div class="cooking" role="status">
             <span class="pot" aria-hidden="true">
-              🍳
+              <Icon name="loader" size={20} class="spin" />
             </span>
             <span>{t("cooking")}</span>
             <div class="shimmer" />
@@ -125,7 +126,7 @@ export function Meet() {
           <p class="muted small">{t("meetBody")}</p>
         </div>
       </section>
-      {r && !r.llmEnabled && <p class="note-bar">✨ {t("llmOff")}</p>}
+      {r && !r.llmEnabled && <p class="note-bar with-icon"><Icon name="sparkles" size={15} /> {t("llmOff")}</p>}
 
       {(incoming.length > 0 || outgoing.length > 0) && (
         <section>
@@ -142,7 +143,7 @@ export function Meet() {
                       {peerName(m)} <span class="muted small">{t("wantsToMeet")}</span>
                     </div>
                     {m.peer.tagline && <div class="muted small">{m.peer.tagline}</div>}
-                    {m.peerMasked && <div class="muted small">🎭 {t("revealNote")}</div>}
+                    {m.peerMasked && <div class="muted small with-icon"><Icon name="mask" size={14} /> {t("revealNote")}</div>}
                   </div>
                 </div>
                 <q class="req-q small" dir="auto">
@@ -153,7 +154,7 @@ export function Meet() {
                     {t("decline")}
                   </button>
                   <button class="btn primary grow" onClick={() => respondMeet(m.id, true)}>
-                    {t("accept")} 🤝
+                    <Icon name="handshake" size={18} /> {t("accept")}
                   </button>
                 </div>
               </li>
@@ -164,7 +165,7 @@ export function Meet() {
                   <Avatar who={m.peer} size={36} />
                   <div class="person-info">
                     <div class="person-name">{peerName(m)}</div>
-                    <div class="muted small">{m.peerMasked ? `🎭 ${t("revealNote")}` : t("waitingReply")}</div>
+                    <div class="muted small with-icon">{m.peerMasked ? <><Icon name="mask" size={14} /> {t("revealNote")}</> : t("waitingReply")}</div>
                   </div>
                   <span class="status-chip requested">{t("outgoing")}</span>
                 </div>

@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { changeLang, editingProfile, prefs, room, setPref, settingsOpen, you } from "../store";
 import type { FontSize, Theme } from "../store";
@@ -38,7 +39,7 @@ export function Settings() {
             {t("settings")}
           </h2>
           <button class="icon-btn" onClick={close} aria-label={t("close")}>
-            ✕
+            <Icon name="x" size={18} />
           </button>
         </header>
 
@@ -54,9 +55,9 @@ export function Settings() {
             <div class="grow left">
               <div class="person-name">{displayName(me.name)}</div>
               <div class="muted small">{me.tagline || t("editProfile")}</div>
-              {me.spotMe && <div class="muted small">👀 {me.spotMe}</div>}
+              {me.spotMe && <div class="muted small with-icon"><Icon name="eye" size={13} /> {me.spotMe}</div>}
             </div>
-            <span class="muted">✎</span>
+            <span class="muted"><Icon name="pencil" size={16} /></span>
           </button>
         )}
 
@@ -80,7 +81,7 @@ export function Settings() {
           <div class="set-label">{t("displayMode")}</div>
           <div class="seg-ctl wide">
             <button class={p.mode === "flow" ? "on" : ""} aria-pressed={p.mode === "flow"} onClick={() => setPref("mode", "flow")}>
-              <b>📜 {t("flow")}</b>
+              <b class="with-icon"><Icon name="scroll" size={16} /> {t("flow")}</b>
               <small>{t("flowHint")}</small>
             </button>
             <button
@@ -88,7 +89,7 @@ export function Settings() {
               aria-pressed={p.mode === "captions"}
               onClick={() => setPref("mode", "captions")}
             >
-              <b>🎬 {t("captions")}</b>
+              <b class="with-icon"><Icon name="captions" size={16} /> {t("captions")}</b>
               <small>{t("captionsHint")}</small>
             </button>
           </div>

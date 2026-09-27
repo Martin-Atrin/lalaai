@@ -1,3 +1,4 @@
+import { Icon } from "./Icon";
 import { useMemo, useRef, useState } from "preact/hooks";
 import { signal } from "@preact/signals";
 import type { QuestionView } from "@shared/protocol";
@@ -49,11 +50,11 @@ function QuestionCard({ q }: { q: QuestionView }) {
           <span class="q-name">
             {hidden ? t("anonymous") : displayName(q.author.name)}
             {q.mine && <span class="muted"> · {t("you")}</span>}
-            {q.mine && q.anonymous && <span class="muted small"> · 🎭 {t("mineAnon")}</span>}
+            {q.mine && q.anonymous && <span class="muted small with-icon"> · <Icon name="mask" size={13} /> {t("mineAnon")}</span>}
           </span>
           <span class="q-badges">
-            {q.pinned && <span class="badge pin">📌 {t("onScreen")}</span>}
-            {q.answered && <span class="badge ok">✓ {t("answered")}</span>}
+            {q.pinned && <span class="badge pin with-icon"><Icon name="pin" size={12} /> {t("onScreen")}</span>}
+            {q.answered && <span class="badge ok with-icon"><Icon name="check" size={12} strokeWidth={2.6} /> {t("answered")}</span>}
           </span>
         </div>
         {q.mine && (
@@ -63,7 +64,7 @@ function QuestionCard({ q }: { q: QuestionView }) {
             title={t("delete")}
             onClick={() => confirm(t("deleteConfirm")) && deleteQuestion(q.id)}
           >
-            🗑
+            <Icon name="trash" size={17} />
           </button>
         )}
       </header>
@@ -72,7 +73,7 @@ function QuestionCard({ q }: { q: QuestionView }) {
       </p>
       {q.translated && (
         <button class="link small muted" onClick={() => setOrig((o) => !o)} aria-pressed={orig}>
-          🌐 {t("translatedFrom", { lang: langNameIn(q.originalLang, uiLang.value) })} ·{" "}
+          <Icon name="globe" size={13} /> {t("translatedFrom", { lang: langNameIn(q.originalLang, uiLang.value) })} ·{" "}
           <u>{orig ? t("hideOriginal") : t("showOriginal")}</u>
         </button>
       )}
@@ -85,7 +86,7 @@ function QuestionCard({ q }: { q: QuestionView }) {
           aria-label={`${q.likedByMe ? t("unlike") : t("like")} (${q.likes})`}
         >
           <span class="heart" key={pop} aria-hidden="true">
-            {q.likedByMe ? "♥" : "♡"}
+            <Icon name="heart" size={20} filled={q.likedByMe} />
           </span>
           <span class="like-count">{q.likes}</span>
         </button>
@@ -95,7 +96,7 @@ function QuestionCard({ q }: { q: QuestionView }) {
             disabled={ps !== "none"}
             onClick={() => requestMeet(hidden ? undefined : q.author.uid, q.id)}
           >
-            {ps === "matched" ? `🤝 ${t("matched")}` : ps === "requested" || ps === "incoming" ? `✓ ${t("requested")}` : `👋 ${t("meetAsker")}`}
+            {ps === "matched" ? <><Icon name="handshake" size={15} /> {t("matched")}</> : ps === "requested" || ps === "incoming" ? <><Icon name="check" size={15} /> {t("requested")}</> : <><Icon name="wave" size={15} /> {t("meetAsker")}</>}
           </button>
         )}
       </footer>
@@ -127,10 +128,10 @@ export function QA() {
       <div class="scroll">
         <div class="seg-ctl" role="tablist" aria-label="Sort">
           <button role="tab" aria-selected={sort === "top"} class={sort === "top" ? "on" : ""} onClick={() => setSort("top")}>
-            🔥 {t("sortTop")}
+            <Icon name="flame" size={15} /> {t("sortTop")}
           </button>
           <button role="tab" aria-selected={sort === "new"} class={sort === "new" ? "on" : ""} onClick={() => setSort("new")}>
-            ✨ {t("sortNew")}
+            <Icon name="sparkles" size={15} /> {t("sortNew")}
           </button>
         </div>
         {sorted.length === 0 ? (
@@ -146,7 +147,7 @@ export function QA() {
           </div>
         )}
       </div>
-      {anonDraft.value && <p class="anon-note">🎭 {t("askAnonOn")}</p>}
+      {anonDraft.value && <p class="anon-note with-icon"><Icon name="mask" size={15} /> {t("askAnonOn")}</p>}
       <form class="composer" onSubmit={submit}>
         <button
           type="button"
@@ -156,7 +157,7 @@ export function QA() {
           aria-label={t("askAnonToggle")}
           onClick={() => (anonDraft.value = !anonDraft.value)}
         >
-          🎭
+          <Icon name="mask" size={22} />
         </button>
         <div class="composer-box">
           <textarea
@@ -181,7 +182,7 @@ export function QA() {
           {text.length > 200 && <span class={`count ${left < 20 ? "warn" : ""}`}>{t("charsLeft", { n: left })}</span>}
         </div>
         <button class="send-btn" type="submit" disabled={!text.trim()} aria-label={t("send")}>
-          ➤
+          <Icon name="send" size={20} />
         </button>
       </form>
     </div>
