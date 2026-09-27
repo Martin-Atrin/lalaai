@@ -19,6 +19,7 @@ struct Config: Codable, Equatable {
     /// "" = presenter language; otherwise a target language code
     var captionLang = ""
     var captionFontSize: Double = 34
+    var qaFontSize: Double = 16
     /// Keep QR / Q&A / captions above fullscreen slideshows (Keynote, PowerPoint, Google Slides in fullscreen).
     var panelsAboveFullscreen = true
     /// presenter tokens per slug so a restarted app can re-claim its room
@@ -48,6 +49,7 @@ struct Config: Codable, Equatable {
         panelStyle = (try? c.decode(PanelStyle.self, forKey: .panelStyle)) ?? d.panelStyle
         captionLang = (try? c.decode(String.self, forKey: .captionLang)) ?? d.captionLang
         captionFontSize = (try? c.decode(Double.self, forKey: .captionFontSize)) ?? d.captionFontSize
+        qaFontSize = (try? c.decode(Double.self, forKey: .qaFontSize)) ?? d.qaFontSize
         panelsAboveFullscreen = (try? c.decode(Bool.self, forKey: .panelsAboveFullscreen)) ?? d.panelsAboveFullscreen
     }
 

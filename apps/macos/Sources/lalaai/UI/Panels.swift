@@ -287,6 +287,9 @@ struct QAPanelView: View {
 
     var body: some View {
         PanelChrome(title: "Audience questions · \(model.sortedQuestions.count)") {
+            ToolButton(icon: "textformat.size.smaller", help: "Smaller") { model.config.qaFontSize = max(12, model.config.qaFontSize - 2) }
+            ToolButton(icon: "textformat.size.larger", help: "Larger") { model.config.qaFontSize = min(40, model.config.qaFontSize + 2) }
+        } content: {
             VStack(alignment: .leading, spacing: 12) {
                 if let q = model.pinnedQuestion { PinnedQuestion(q: q) }
                 if model.sortedQuestions.isEmpty {
@@ -321,7 +324,7 @@ private struct PinnedQuestion: View {
                 Spacer()
                 Label("\(q.likes)", systemImage: "heart.fill").font(.system(size: 13, weight: .heavy)).foregroundStyle(Color.brandWarm)
             }
-            PanelText(text: q.text(in: model.config.presenterLang), size: 26, weight: .bold)
+            PanelText(text: q.text(in: model.config.presenterLang), size: model.config.qaFontSize * 1.6, weight: .bold)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 PanelText(text: "— \(q.authorLabel) \(Lang.flag(q.originalLang))", size: 13, weight: .medium, secondary: true)
@@ -350,11 +353,11 @@ private struct QuestionRow: View {
             .frame(width: 38)
             .foregroundStyle(q.likes > 0 ? Color.brandWarm : Color.secondary)
             VStack(alignment: .leading, spacing: 4) {
-                PanelText(text: q.text(in: model.config.presenterLang), size: 16, weight: .semibold)
+                PanelText(text: q.text(in: model.config.presenterLang), size: model.config.qaFontSize, weight: .semibold)
                     .strikethrough(q.answered)
                     .opacity(q.answered ? 0.55 : 1)
                     .fixedSize(horizontal: false, vertical: true)
-                PanelText(text: "\(q.authorLabel) \(Lang.flag(q.originalLang))", size: 12, weight: .medium, secondary: true)
+                PanelText(text: "\(q.authorLabel) \(Lang.flag(q.originalLang))", size: max(11, model.config.qaFontSize * 0.75), weight: .medium, secondary: true)
             }
             Spacer(minLength: 0)
             if hover {

@@ -53,6 +53,10 @@ final class PhoneModel {
     var questions: [QuestionFull] = []
     var translationLangs: [String] = []
     var speechLocales: [Locale] = []
+    /// Apple language packs this iPhone still needs (e.g. pl→en). Without them translation silently falls back
+    /// to the original text, so the presenter would only see untranslated questions.
+    var missingPairs: [(String, String)] = []
+    var downloadingPairs = false
 
     @ObservationIgnored private var relay: RelayClient?
     @ObservationIgnored private let translator = Translator()
@@ -80,6 +84,26 @@ final class PhoneModel {
             translator.appleLangs = Set(apple)
             translationLangs = apple
             speechLocales = await AppleSpeechEngine.supportedLocales().sorted { $0.identifier < $1.identifier }
+            await refreshMissingPairs()
+        }
+    }
+
+    func refreshMissingPairs() async {
+        var missing: [(String, String)] = []
+        let src = config.presenterLang
+        for t in Set(config.targetLangs + (room?.languages ?? [])) where t != src {
+            if await translator.status(from: src, to: t) == .needsDownload { missing.append((src, t)) }
+            if await translator.status(from: t, to: src) == .needsDownload { missing.append((t, src)) }
+        }
+        missingPairs = missing
+    }
+
+    func pairsDownloaded() {
+        downloadingPairs = false
+        translator.reset()
+        Task {
+            await refreshMissingPairs()
+            questions.forEach(translateIfNeeded) // translate anything that arrived before the packs existed
         }
     }
 

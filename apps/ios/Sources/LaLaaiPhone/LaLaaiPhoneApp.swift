@@ -55,6 +55,7 @@ struct SetupScreen: View {
                                     .tag(l.identifier)
                             }
                         }
+                        LanguagePacksRow()
                         Text("Audience can read in").font(.subheadline).foregroundStyle(.secondary)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
@@ -110,6 +111,8 @@ struct SetupScreen: View {
             }
             .background(LinearGradient(colors: [Color.brandAqua.opacity(0.10), .clear], startPoint: .top, endPoint: .bottom))
             .sheet(isPresented: $addingLang) { AddLanguageSheet() }
+            .onChange(of: model.config.targetLangs) { Task { await model.refreshMissingPairs() } }
+            .onChange(of: model.config.presenterLocale) { Task { await model.refreshMissingPairs() } }
         }
     }
 
@@ -158,6 +161,7 @@ struct LiveScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if !model.missingPairs.isEmpty { LanguagePacksRow().padding(.horizontal).padding(.vertical, 8) }
             TabView(selection: $tab) {
                 QRTab().tag(0).tabItem { Label("Join", systemImage: "qrcode") }
                 CaptionsTab().tag(1).tabItem { Label("Captions", systemImage: "captions.bubble.fill") }
@@ -299,5 +303,32 @@ enum QRImage {
         guard let out = f.outputImage?.transformed(by: .init(scaleX: 12, y: 12)),
               let cg = CIContext().createCGImage(out, from: out.extent) else { return nil }
         return UIImage(cgImage: cg)
+    }
+}
+
+/// Missing Apple language packs → one tap to download (the system shows its own prompt).
+struct LanguagePacksRow: View {
+    @Environment(PhoneModel.self) private var model
+    @State private var progress = ""
+    var body: some View {
+        if !model.missingPairs.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: "arrow.down.circle.fill").foregroundStyle(Color.brandWarm)
+                    Text("\(model.missingPairs.count) language packs needed for translation").font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Button("Download") { model.downloadingPairs = true }
+                        .buttonStyle(.borderedProminent).tint(Color.brandNavy).disabled(model.downloadingPairs)
+                }
+                if model.downloadingPairs {
+                    Text(progress).font(.caption).foregroundStyle(.secondary)
+                    TranslationDownloader(pairs: model.missingPairs, onProgress: { progress = $0 }, onDone: { model.pairsDownloaded() })
+                }
+            }
+            .padding(12)
+            .background(Color.brandWarm.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+        } else {
+            Label("Language packs installed", systemImage: "checkmark.seal.fill").font(.caption.weight(.semibold)).foregroundStyle(Color.brandAqua)
+        }
     }
 }
