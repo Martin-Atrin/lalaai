@@ -94,6 +94,15 @@ docs/               Images for this README
 
 Rule of thumb: **anything under `web/` goes to the server; anything under `apps/` goes to a presenter's device.** The two sides talk only through the protocol in [`web/shared/protocol.ts`](web/shared/protocol.ts), mirrored in [`apps/shared/Protocol.swift`](apps/shared/Protocol.swift).
 
+## Download
+
+**Mac presenter app** (macOS 26, Apple Silicon; signed and notarized):
+[**La Laai.dmg**](https://github.com/Martin-Atrin/lalaai/releases/latest/download/LaLaai.dmg) ·
+[.zip](https://github.com/Martin-Atrin/lalaai/releases/latest/download/LaLaai.zip) ·
+[all releases](https://github.com/Martin-Atrin/lalaai/releases)
+
+Attendees need nothing: they scan the QR code.
+
 ## Getting started
 
 ### Relay + attendee web app (deploy)
@@ -133,6 +142,9 @@ xcrun notarytool store-credentials "lalaai-notary" --apple-id <you@example.com> 
 ```
 ```bash
 SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" apps/macos/build-app.sh && apps/macos/notarize.sh
+```
+```bash
+SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" apps/macos/make-dmg.sh
 ```
 
 ### iPhone presenter app
