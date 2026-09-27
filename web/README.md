@@ -11,11 +11,13 @@ Everything in this folder is what runs on a server. Nothing else in the repo is 
 
 ## Deploy
 
-With Railway, run this from `web/`:
+With Railway, run this from the repo root:
 
 ```bash
-railway up
+railway up web --path-as-root
 ```
+
+`--path-as-root` makes `web/` the build context; without it Railway uploads the whole repo.
 
 On any Docker host:
 

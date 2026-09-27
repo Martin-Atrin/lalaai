@@ -114,7 +114,7 @@ pnpm -C web/pwa install && pnpm -C web/pwa build
 bun web/relay/src/server.ts
 ```
 
-That runs on `:8787`, and phones on the same Wi‑Fi can join. For real events, deploy `web/` behind HTTPS. With Railway, run `railway up` from `web/`: the Dockerfile there builds the PWA and runs the relay. Set `PUBLIC_URL` if you use a custom domain.
+That runs on `:8787`, and phones on the same Wi‑Fi can join. For real events, deploy `web/` behind HTTPS. With Railway, run `railway up web --path-as-root` from the repo root (or `pnpm deploy:web`): the Dockerfile in `web/` builds the PWA and runs the relay. Set `PUBLIC_URL` if you use a custom domain.
 
 ### Mac presenter app
 
