@@ -117,16 +117,25 @@ final class AgentRunner: @unchecked Sendable {
         case .claude:
             let cfg = #"{"mcpServers":{"lalaai":{"type":"http","url":"\#(mcpURL)"}}}"#
             args = ["-p", prompt, "--mcp-config", cfg, "--strict-mcp-config",
+                    // Skip the presenter's own hooks/plugins/skills/built-in tools: they add 30 s+ per run and
+                    // aren't needed. Only La Laai's MCP tools are available; anything else is denied, never prompted.
+                    "--setting-sources", "", "--tools", "", "--disable-slash-commands", "--no-session-persistence",
+                    "--permission-mode", "dontAsk",
                     "--allowedTools", "mcp__lalaai__get_presentation,mcp__lalaai__get_transcript,mcp__lalaai__get_questions,mcp__lalaai__get_icebreaker_job,mcp__lalaai__list_icebreaker_jobs,mcp__lalaai__submit_icebreakers",
                     "--output-format", "text"]
             if let model { args += ["--model", model] }
         case .codex:
-            args = ["exec", "--skip-git-repo-check", "-s", "read-only",
-                    "-c", "mcp_servers.lalaai.url=\"\(mcpURL)\"",
-                    // Auto-approve ONLY La Laai's tools; everything else stays locked down (read-only sandbox, no approvals).
-                    "-c", "mcp_servers.lalaai.default_tools_approval_mode=\"approve\"",
-                    "-c", "approval_policy=\"never\"",
-                    "-C", tmp.path]
+            args = ["exec", "--skip-git-repo-check", "-s", "read-only"]
+            // The presenter's ~/.codex/config.toml starts every global MCP server and hook they have (measured:
+            // 89 s vs 12 s for the probe) and may pin a default model this CLI can't run. Auth still comes from CODEX_HOME.
+            if Self.codexIgnoresUserConfig { args += ["--ignore-user-config", "--ephemeral", "-c", "model_reasoning_effort=\"low\""] }
+            args += ["-c", "mcp_servers.lalaai.url=\"\(mcpURL)\"",
+                     "-c", "mcp_servers.lalaai.startup_timeout_sec=20",
+                     "-c", "mcp_servers.lalaai.tool_timeout_sec=120", // submit_icebreakers translates on device
+                     // Auto-approve ONLY La Laai's tools; everything else stays locked down (read-only sandbox, no approvals).
+                     "-c", "mcp_servers.lalaai.default_tools_approval_mode=\"approve\"",
+                     "-c", "approval_policy=\"never\"",
+                     "-C", tmp.path]
             if let model { args += ["-m", model] }
             args.append(prompt)
         case .gemini:
@@ -173,40 +182,136 @@ final class AgentRunner: @unchecked Sendable {
         return MCPServer.parseIcebreakers(obj["icebreakers_by_lang"] ?? obj)
     }
 
+    /// Codex ≥ ~0.150 can skip the user's config.toml (their MCP servers, hooks, default model) for a run.
+    static let codexIgnoresUserConfig: Bool = {
+        guard let bin = locate("codex") else { return false }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: bin)
+        p.arguments = ["exec", "--help"]
+        p.environment = childEnvironment()
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        p.standardInput = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        let help = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        p.waitUntilExit()
+        return help.contains("--ignore-user-config")
+    }()
+
+    /// Our environment minus anything that would hijack the agent CLI when La Laai itself was started from inside
+    /// an agent session (Claude Code / Codex terminal): those vars point `claude` at the host's auth proxy
+    /// ("Not logged in") or put `codex` into the host's network-less sandbox.
+    static func childEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let hostedByClaude = env["CLAUDECODE"] != nil || env["CLAUDE_CODE_ENTRYPOINT"] != nil
+        for k in env.keys where k == "CLAUDECODE" || k.hasPrefix("CLAUDE_CODE_") || k.hasPrefix("CLAUDE_AGENT_SDK")
+            || k == "CLAUDE_PID" || k == "CLAUDE_EFFORT" || k.hasPrefix("CLAUDE_PREVIEW_") || k.hasPrefix("CODEX_SANDBOX")
+            || k == "CODEX_THREAD_ID" || (hostedByClaude && k == "ANTHROPIC_BASE_URL") {
+            env[k] = nil
+        }
+        env["PATH"] = loginPath
+        env["NO_COLOR"] = "1"
+        return env
+    }
+
+    /// Runs a CLI with a hard timeout. Never throws/crashes on a misbehaving child: resumes exactly once, escalates
+    /// SIGTERM → SIGKILL, and doesn't block forever on pipes a stray grandchild keeps open.
     static func run(_ bin: String, _ args: [String], cwd: URL? = nil, extraEnv: [String: String] = [:], timeout: TimeInterval) async throws -> RunResult {
-        try await withCheckedThrowingContinuation { cont in
+        StderrGuard.install()
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<RunResult, Error>) in
+            let once = Once()
+            func finish(_ r: Result<RunResult, Error>) { if once.claim() { cont.resume(with: r) } }
             let p = Process()
             p.executableURL = URL(fileURLWithPath: bin)
             p.arguments = args
             if let cwd { p.currentDirectoryURL = cwd }
-            var env = ProcessInfo.processInfo.environment
-            env["PATH"] = loginPath
-            env["NO_COLOR"] = "1"
-            env.merge(extraEnv) { $1 }
-            p.environment = env
+            p.environment = childEnvironment().merging(extraEnv) { $1 }
             let out = Pipe(), err = Pipe()
             p.standardOutput = out
             p.standardError = err
             p.standardInput = FileHandle.nullDevice // CLIs wait for EOF otherwise
             let accOut = DataBox(), accErr = DataBox()
-            out.fileHandleForReading.readabilityHandler = { h in accOut.append(h.availableData) }
-            err.fileHandleForReading.readabilityHandler = { h in accErr.append(h.availableData) }
-            p.terminationHandler = { proc in
-                out.fileHandleForReading.readabilityHandler = nil
-                err.fileHandleForReading.readabilityHandler = nil
-                accOut.append(out.fileHandleForReading.readDataToEndOfFile())
-                accErr.append(err.fileHandleForReading.readDataToEndOfFile())
-                if proc.terminationReason == .uncaughtSignal { cont.resume(throwing: Err("The agent took too long and was stopped.")) }
-                else {
-                    cont.resume(returning: RunResult(out: String(decoding: accOut.data, as: UTF8.self),
-                                                     err: String(decoding: accErr.data, as: UTF8.self),
-                                                     status: proc.terminationStatus))
+            let eof = DispatchGroup()
+            for (pipe, box) in [(out, accOut), (err, accErr)] {
+                eof.enter()
+                let done = Once()
+                pipe.fileHandleForReading.readabilityHandler = { h in
+                    let d = h.availableData
+                    if d.isEmpty { h.readabilityHandler = nil; if done.claim() { eof.leave() } } else { box.append(d) }
                 }
             }
-            do { try p.run() } catch { cont.resume(throwing: error); return }
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { if p.isRunning { p.terminate() } }
+            let timedOut = Once()
+            p.terminationHandler = { proc in
+                // Collect what's left, but a grandchild holding the pipe must not hang us.
+                DispatchQueue.global().async {
+                    _ = eof.wait(timeout: .now() + 3)
+                    let result = RunResult(out: String(decoding: accOut.data, as: UTF8.self),
+                                           err: String(decoding: accErr.data, as: UTF8.self),
+                                           status: proc.terminationStatus)
+                    if timedOut.isClaimed { finish(.failure(Err("The agent took too long (\(Int(timeout)) s) and was stopped."))) }
+                    else { finish(.success(result)) }
+                }
+            }
+            do { try p.run() } catch {
+                out.fileHandleForReading.readabilityHandler = nil
+                err.fileHandleForReading.readabilityHandler = nil
+                finish(.failure(Err("Couldn't start \(URL(fileURLWithPath: bin).lastPathComponent): \(error.localizedDescription)")))
+                return
+            }
+            let pid = p.processIdentifier
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                guard p.isRunning, timedOut.claim() else { return }
+                p.terminate()
+                DispatchQueue.global().asyncAfter(deadline: .now() + 5) { if p.isRunning { kill(pid, SIGKILL) } }
+            }
         }
     }
+}
+
+/// One-shot flag (thread-safe).
+final class Once: @unchecked Sendable {
+    private let lock = NSLock()
+    private var claimed = false
+    /// True the first time only.
+    func claim() -> Bool { lock.lock(); defer { lock.unlock() }; if claimed { return false }; claimed = true; return true }
+    var isClaimed: Bool { lock.lock(); defer { lock.unlock() }; return claimed }
+}
+
+/// La Laai logs `lalaai:` lines to stderr with FileHandle.write. When the app was launched from a terminal or an
+/// agent's shell whose stderr pipe later closed, the next log line (typically "agent failed: … took too long")
+/// raised SIGPIPE and the app vanished without a crash report. We ignore SIGPIPE and, when stderr is a pipe/socket,
+/// put our own pipe in front of it (FileHandle.write would otherwise throw on EPIPE); a forwarder copies lines to the
+/// original stderr and silently drops them once nobody is reading.
+enum StderrGuard {
+    private static let installed: Void = {
+        signal(SIGPIPE, SIG_IGN)
+        var st = stat()
+        guard fstat(STDERR_FILENO, &st) == 0 else { return }
+        let kind = st.st_mode & S_IFMT
+        guard kind == S_IFIFO || kind == S_IFSOCK else { return } // tty/file/null can't break
+        let original = dup(STDERR_FILENO)
+        var fds: [Int32] = [0, 0]
+        guard original >= 0, pipe(&fds) == 0 else { return }
+        _ = fcntl(original, F_SETFD, FD_CLOEXEC)
+        _ = fcntl(fds[0], F_SETFD, FD_CLOEXEC)
+        guard dup2(fds[1], STDERR_FILENO) >= 0 else { return }
+        close(fds[1])
+        let reader = fds[0]
+        let t = Thread {
+            var buf = [UInt8](repeating: 0, count: 4096)
+            var sink: Int32 = original
+            while true {
+                let n = read(reader, &buf, buf.count)
+                if n <= 0 { if n < 0 && errno == EINTR { continue }; return }
+                if sink >= 0, buf.withUnsafeBytes({ write(sink, $0.baseAddress, n) }) < 0, errno == EPIPE { close(sink); sink = -1 }
+            }
+        }
+        t.name = "lalaai.stderr"
+        t.start()
+    }()
+
+    static func install() { _ = installed }
 }
 
 final class DataBox: @unchecked Sendable {

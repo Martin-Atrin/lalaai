@@ -18,7 +18,8 @@ enum ModelCatalog {
             return [
                 ModelOption(id: "", label: "CLI default"),
                 ModelOption(id: "opus", label: "Opus", detail: "most capable"),
-                ModelOption(id: "sonnet", label: "Sonnet", detail: "balanced"),
+                ModelOption(id: "claude-sonnet-5", label: "Sonnet 5", detail: "balanced, recommended"),
+                ModelOption(id: "sonnet", label: "Sonnet (latest)", detail: "balanced"),
                 ModelOption(id: "haiku", label: "Haiku", detail: "fastest"),
             ]
         case .gemini:
@@ -29,6 +30,8 @@ enum ModelCatalog {
                 ModelOption(id: "flash-lite", label: "Flash-Lite", detail: "fastest"),
             ]
         case .codex:
+            // Runs skip ~/.codex/config.toml when the CLI supports it, so its `model = …` doesn't apply.
+            if AgentRunner.codexIgnoresUserConfig { return [ModelOption(id: "", label: "CLI default")] + codexModels() }
             let def = codexDefaultModel()
             let supported = codexModels()
             let defaultOK = def == nil || supported.isEmpty || supported.contains { $0.id == def }
@@ -39,7 +42,7 @@ enum ModelCatalog {
 
     /// True when the CLI's configured default can't be used (Codex set to a model newer than the installed CLI).
     static func defaultIsBroken(for provider: LLMProvider) -> Bool {
-        guard provider == .codex, let def = codexDefaultModel() else { return false }
+        guard provider == .codex, !AgentRunner.codexIgnoresUserConfig, let def = codexDefaultModel() else { return false }
         let supported = codexModels()
         return !supported.isEmpty && !supported.contains { $0.id == def }
     }

@@ -25,6 +25,7 @@ final class MCPServer: @unchecked Sendable {
     var url: String { "http://127.0.0.1:\(port)/mcp" }
 
     func start() throws {
+        StderrGuard.install() // earliest point in launch we own: a closed stderr pipe must never kill the app
         let params = NWParameters.tcp
         params.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .init(rawValue: port)!)
         params.allowLocalEndpointReuse = true
@@ -239,7 +240,7 @@ struct HTTPRequest {
             guard let i = l.firstIndex(of: ":") else { continue }
             headers[l[..<i].lowercased()] = l[l.index(after: i)...].trimmingCharacters(in: .whitespaces)
         }
-        let len = Int(headers["content-length"] ?? "0") ?? 0
+        let len = max(0, Int(headers["content-length"] ?? "0") ?? 0)
         let bodyStart = range.upperBound
         guard data.count - bodyStart >= len else { return nil }
         return HTTPRequest(method: String(first[0]), path: String(first[1]), headers: headers,

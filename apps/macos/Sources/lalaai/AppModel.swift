@@ -451,11 +451,12 @@ final class AppModel: MCPContext {
     /// Fills languages the agent skipped with on-device translation, then sends to the relay.
     private func deliver(job: IcebreakerJob, byLang: [String: [Icebreaker]], via: String) async -> String {
         var out: [String: [Icebreaker]] = [:]
-        for (k, v) in byLang { out[Lang.norm(k)] = v }
-        let srcLang = out[config.presenterLang] != nil ? config.presenterLang : (out["en"] != nil ? "en" : out.keys.sorted().first!)
+        for (k, v) in byLang where !v.isEmpty { out[Lang.norm(k)] = v }
+        let srcLang: String? = out[config.presenterLang] != nil ? config.presenterLang : (out["en"] != nil ? "en" : out.keys.sorted().first)
+        guard let srcLang, let source = out[srcLang] else { return "No icebreakers found; send icebreakers_by_lang as {lang: [{topic, prompt}]}." }
         for l in job.langs where out[l] == nil {
             var list: [Icebreaker] = []
-            for ib in out[srcLang]! {
+            for ib in source {
                 let topic = await translator.translate(ib.topic, from: srcLang, to: l) ?? ib.topic
                 let prompt = await translator.translate(ib.prompt, from: srcLang, to: l) ?? ib.prompt
                 list.append(Icebreaker(topic: topic, prompt: prompt))
