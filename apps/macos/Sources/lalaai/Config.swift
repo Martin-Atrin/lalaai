@@ -34,7 +34,7 @@ struct Config: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Config()
-        relayURL = (try? c.decode(String.self, forKey: .relayURL)) ?? d.relayURL
+        relayURL = Relay.migrated((try? c.decode(String.self, forKey: .relayURL)) ?? d.relayURL, fallback: d.relayURL)
         presenterName = (try? c.decode(String.self, forKey: .presenterName)) ?? d.presenterName
         title = (try? c.decode(String.self, forKey: .title)) ?? d.title
         slug = (try? c.decode(String.self, forKey: .slug)) ?? d.slug

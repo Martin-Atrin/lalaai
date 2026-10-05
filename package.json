@@ -11,7 +11,6 @@
     "mac:build": "apps/macos/build-app.sh",
     "mac:open": "open apps/macos/build/lalaai.app",
     "test": "cd web/relay && bun test",
-    "e2e": "bun scripts/e2e-desktop.ts && bun scripts/e2e-questions.ts && bun scripts/e2e-transcript.ts",
-    "deploy:web": "railway up web --path-as-root"
+    "e2e": "bun scripts/e2e-desktop.ts && bun scripts/e2e-questions.ts && bun scripts/e2e-transcript.ts"
   }
 }

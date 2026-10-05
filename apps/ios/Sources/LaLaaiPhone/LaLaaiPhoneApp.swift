@@ -79,14 +79,12 @@ struct SetupScreen: View {
 
                     card {
                         Text("Relay").font(.headline)
-                        Picker("Relay", selection: $model.config.relayURL) {
-                            Text("La Laai Cloud").tag(hostedRelayURL)
-                            if model.config.relayURL != hostedRelayURL { Text(model.config.relayURL).tag(model.config.relayURL) }
-                        }
-                        .pickerStyle(.segmented)
-                        TextField("https://…", text: $model.config.relayURL)
+                        TextField("https://your-relay.example.com", text: $model.config.relayURL)
                             .font(.system(.footnote, design: .monospaced))
                             .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                        Text("Phones join through a relay you run: your Mac on the same Wi-Fi, or your own server.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Link("How to run your own relay", destination: selfHostRelayDocs).font(.footnote)
                     }
 
                     if let err = model.lastError {

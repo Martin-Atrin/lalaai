@@ -9,21 +9,23 @@ Everything in this folder is what runs on a server. Nothing else in the repo is 
 | `shared/protocol.ts` | The wire contract. `apps/shared/Protocol.swift` mirrors it for the native apps. |
 | `Dockerfile` | Builds the PWA and runs the relay in one image. Build context: this folder. |
 
-## Deploy
+## Run it yourself
 
-With Railway, run this from the repo root:
+This is the self-hostable relay for La Laai: there is no hosted La Laai relay. One Docker image runs the relay and serves the attendee app.
+
+On any Docker host:
+
+```bash
+docker build -t lalaai-relay . && docker run -p 8787:8787 lalaai-relay
+```
+
+Put it behind HTTPS (Caddy, nginx, or your platform's TLS) so phones can reach it from anywhere. On a container platform, deploy this folder with its Dockerfile using your own account. On Railway, run this from the repo root (`--path-as-root` makes `web/` the build context):
 
 ```bash
 railway up web --path-as-root
 ```
 
-`--path-as-root` makes `web/` the build context; without it Railway uploads the whole repo.
-
-On any Docker host:
-
-```bash
-docker build -t lalaai-web . && docker run -p 8787:8787 lalaai-web
-```
+No server: run `bun relay/src/server.ts` on the presenter's Mac and expose it with `cloudflared tunnel --url http://localhost:8787`.
 
 **Environment variables:**
 - `PORT` (default 8787)

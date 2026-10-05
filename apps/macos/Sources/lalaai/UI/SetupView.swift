@@ -150,7 +150,7 @@ private struct SessionHero: View {
                 infoTag("mic.fill", Lang.name(model.config.presenterLang).components(separatedBy: " · ").first ?? "")
                 infoTag("globe", model.config.targetLangs.map(Lang.flag).joined(separator: " "))
                 infoTag("sparkles", model.config.llmProvider == .none ? "AI off" : model.config.llmProvider.label)
-                infoTag("server.rack", model.config.relayURL == hostedRelayURL ? "La Laai Cloud" : "Custom relay")
+                infoTag("server.rack", model.config.relayURL.contains("localhost") || model.config.relayURL.contains(":8787") ? "This Mac" : "Your relay")
             }
         }
     }
@@ -541,9 +541,6 @@ private struct RelayCard: View {
         Card(title: "Relay", icon: "antenna.radiowaves.left.and.right", subtitle: "Where phones connect") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Chip(label: "La Laai Cloud", systemImage: "cloud.fill", selected: model.config.relayURL == hostedRelayURL) {
-                        model.config.relayURL = hostedRelayURL
-                    }
                     if let ip = Lang.lanIP() {
                         let local = "http://\(ip):8787"
                         Chip(label: "This Mac (Wi-Fi)", systemImage: "laptopcomputer", selected: model.config.relayURL == local) {
@@ -551,7 +548,10 @@ private struct RelayCard: View {
                         }
                     }
                 }
-                BigField(placeholder: "https://…", text: $model.config.relayURL, icon: "link", mono: true)
+                BigField(placeholder: "https://your-relay.example.com", text: $model.config.relayURL, icon: "link", mono: true)
+                Text("Phones on the same Wi-Fi can use this Mac. For attendees anywhere, run your own relay (free, one command).")
+                    .font(.caption).foregroundStyle(.secondary)
+                Link("How to run your own relay", destination: selfHostRelayDocs).font(.caption)
             }
         }
     }

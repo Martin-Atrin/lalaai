@@ -3,8 +3,19 @@ import Translation
 
 // Shared by the macOS and iOS presenter apps (symlinked into each target as Shared/).
 
-/// Hosted relay (Railway). Phones reach it from anywhere over HTTPS.
-let hostedRelayURL = "https://lalaai-web-production.up.railway.app"
+/// The relay we used to host ("La Laai Cloud"). It is being shut down: La Laai never depends on a server of ours.
+/// Kept only so saved settings that still point at it are migrated (see `Relay.migrated`).
+let retiredHostedRelayURL = "https://lalaai-web-production.up.railway.app"
+
+/// How to run your own relay (README › Run your own relay).
+let selfHostRelayDocs = URL(string: "https://github.com/Martin-Atrin/lalaai#run-your-own-relay")!
+
+enum Relay {
+    /// Settings saved while "La Laai Cloud" existed fall back to `fallback` (this Mac / your own relay).
+    static func migrated(_ url: String, fallback: String) -> String {
+        url.trimmingCharacters(in: .whitespaces).hasPrefix(retiredHostedRelayURL) ? fallback : url
+    }
+}
 
 enum Lang {
     static func base(_ id: String) -> String {

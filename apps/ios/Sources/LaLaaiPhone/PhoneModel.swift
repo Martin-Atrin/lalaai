@@ -4,7 +4,7 @@ import UIKit
 
 /// iPhone presenter settings (persisted).
 struct PhoneConfig: Codable, Equatable {
-    var relayURL = hostedRelayURL
+    var relayURL = ""
     var presenterName = UIDevice.current.name
     var title = "My talk"
     var slug = ""
@@ -18,7 +18,8 @@ struct PhoneConfig: Codable, Equatable {
 
     private static let key = "lalaai.phone.config.v1"
     static func load() -> PhoneConfig {
-        guard let d = UserDefaults.standard.data(forKey: key), let c = try? JSONDecoder().decode(PhoneConfig.self, from: d) else { return PhoneConfig() }
+        guard let d = UserDefaults.standard.data(forKey: key), var c = try? JSONDecoder().decode(PhoneConfig.self, from: d) else { return PhoneConfig() }
+        c.relayURL = Relay.migrated(c.relayURL, fallback: "")
         return c
     }
     func save() { if let d = try? JSONEncoder().encode(self) { UserDefaults.standard.set(d, forKey: Self.key) } }
@@ -124,6 +125,10 @@ final class PhoneModel {
         isStarting = true
         lastError = nil
         defer { isStarting = false }
+        guard !config.relayURL.trimmingCharacters(in: .whitespaces).isEmpty else {
+            lastError = "Enter your relay's address first. La Laai doesn't run a relay for you: see “How to run your own relay”."
+            return
+        }
         do {
             let client = try RelayClient(baseURL: config.relayURL)
             let slug = config.slug.lowercased().trimmingCharacters(in: .whitespaces)

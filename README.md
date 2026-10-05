@@ -105,7 +105,11 @@ Attendees need nothing: they scan the QR code.
 
 ## Getting started
 
-### Relay + attendee web app (deploy)
+### Run your own relay
+
+La Laai doesn't run a server for you. Phones join through a relay **you** run, from the code in [`web/`](web/) (the relay plus the attendee web app, in one small service).
+
+**Same Wi-Fi only (quickest).** On the presenter's Mac:
 
 ```bash
 pnpm -C web/pwa install && pnpm -C web/pwa build
@@ -114,7 +118,23 @@ pnpm -C web/pwa install && pnpm -C web/pwa build
 bun web/relay/src/server.ts
 ```
 
-That runs on `:8787`, and phones on the same Wi‑Fi can join. For real events, deploy `web/` behind HTTPS. With Railway, run `railway up web --path-as-root` from the repo root (or `pnpm deploy:web`): the Dockerfile in `web/` builds the PWA and runs the relay. Set `PUBLIC_URL` if you use a custom domain.
+In the app, pick **This Mac (Wi-Fi)**. Phones on the same network scan the QR code and join.
+
+**Attendees anywhere (HTTPS).** Run the same service on any host you control. It's one Docker image, port 8787:
+
+```bash
+docker build -t lalaai-relay web && docker run -d -p 8787:8787 -e PUBLIC_URL=https://relay.example.com lalaai-relay
+```
+
+Put it behind HTTPS, then paste `https://relay.example.com` into the app's **Relay** field (Mac and iPhone). Some easy ways to get HTTPS:
+
+- **Your own server:** a reverse proxy with automatic certificates, e.g. Caddy (`relay.example.com { reverse_proxy localhost:8787 }`).
+- **A container platform** (Fly.io, Render, Railway, Google Cloud Run…): deploy the `web/` folder with its Dockerfile on your own account. Railway: `railway up web --path-as-root`.
+- **No server at all:** expose the relay running on your Mac with a free Cloudflare quick tunnel: `cloudflared tunnel --url http://localhost:8787`. Paste the printed `https://….trycloudflare.com` address into the app.
+
+Details and environment variables: [`web/README.md`](web/README.md).
+
+> The old "La Laai Cloud" relay is retired. Settings that pointed at it switch to *This Mac* (Mac) or ask for your relay's address (iPhone).
 
 ### Mac presenter app
 
@@ -124,7 +144,7 @@ Requires macOS 26 on Apple Silicon.
 apps/macos/build-app.sh && open apps/macos/build/lalaai.app
 ```
 
-1. Choose your language, audience languages and relay (**La Laai Cloud** or **This Mac**), then **Go live**.
+1. Choose your language, audience languages and relay (**This Mac** on the same Wi-Fi, or [your own relay](#run-your-own-relay)), then **Go live**.
 2. The QR, Q&A and caption windows float above fullscreen Keynote, PowerPoint or Google Slides. Hover a window for its style (Glass / Solid / Clear with outlined text), caption mode and size controls, or drag its corner to resize.
 3. Global shortcuts work from any app:
 
