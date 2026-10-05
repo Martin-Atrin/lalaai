@@ -15,3 +15,5 @@ __pycache__/
 *.log
 .env
 .env.*
+# cloudflared, fetched by scripts/fetch-cloudflared.sh
+apps/macos/vendor/

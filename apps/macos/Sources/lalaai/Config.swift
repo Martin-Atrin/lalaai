@@ -2,7 +2,10 @@ import Foundation
 import Translation
 
 struct Config: Codable, Equatable {
-    var relayURL = "http://localhost:8787"
+    /// How phones reach this Mac (see LinkMode). New installs default to a public link.
+    var linkMode: LinkMode = .publicLink
+    /// Self-hosted relay, used when `linkMode == .custom`.
+    var relayURL = ""
     var presenterName = NSFullUserName()
     var title = "My talk"
     var slug = ""
@@ -34,7 +37,12 @@ struct Config: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Config()
-        relayURL = (try? c.decode(String.self, forKey: .relayURL)) ?? d.relayURL
+        let savedURL = try? c.decode(String.self, forKey: .relayURL)
+        var link = LinkMigration.mac(legacyRelayURL: savedURL)
+        if let mode = try? c.decode(LinkMode.self, forKey: .linkMode) { link = .init(mode: mode, relayURL: savedURL ?? "") }
+        link = LinkMigration.sanitize(link, publicLinkAvailable: true)
+        linkMode = link.mode
+        relayURL = link.relayURL
         presenterName = (try? c.decode(String.self, forKey: .presenterName)) ?? d.presenterName
         title = (try? c.decode(String.self, forKey: .title)) ?? d.title
         slug = (try? c.decode(String.self, forKey: .slug)) ?? d.slug
@@ -56,7 +64,8 @@ struct Config: Codable, Equatable {
     /// Env overrides for scripted demos/tests (used with `--autolive`).
     mutating func applyEnvironment() {
         let e = ProcessInfo.processInfo.environment
-        if let v = e["LALAAI_RELAY"] { relayURL = v }
+        if let v = e["LALAAI_RELAY"] { relayURL = v; linkMode = .custom }
+        if let v = e["LALAAI_LINK"], let m = LinkMode(rawValue: v) { linkMode = m }
         if let v = e["LALAAI_SLUG"] { slug = v }
         if let v = e["LALAAI_TITLE"] { title = v }
         if let v = e["LALAAI_LOCALE"] { presenterLocale = v }

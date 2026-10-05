@@ -28,8 +28,10 @@ final class AppModel: MCPContext {
 
     // session
     var room: RoomInfo?
-    var joinURL: String?
+    var joinURL: String? { didSet { if let joinURL, joinURL != oldValue { trace("join: \(joinURL)") } } }
     var relayState: RelayClient.State = .disconnected
+    /// Public-link state while hosting from this Mac (`.off` otherwise).
+    var tunnel: LinkHost.Tunnel = .off
     var isStarting = false
     var isTranscribing = false
     var level: Float = 0
@@ -64,6 +66,8 @@ final class AppModel: MCPContext {
     var downloadingPairs = false
 
     @ObservationIgnored private var relay: RelayClient?
+    @ObservationIgnored let host = LinkHost()
+    @ObservationIgnored private var sigterm: DispatchSourceSignal?
     @ObservationIgnored private let translator = Translator()
     @ObservationIgnored private var engine: SpeechEngine?
     @ObservationIgnored private var mcp: MCPServer?
@@ -100,8 +104,22 @@ final class AppModel: MCPContext {
 
     init() {
         if config.slug.isEmpty { config.slug = Self.localSlug() }
-        if config.relayURL == "http://localhost:8787", let ip = Lang.lanIP() { config.relayURL = "http://\(ip):8787" }
         config.applyEnvironment()
+        host.log = { [weak self] s in self?.trace(s) }
+        host.onChange = { [weak self] in self?.hostChanged() }
+        // Never leave cloudflared running behind us.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.host.stop() }
+        }
+        // `kill`/scripted stops send SIGTERM, which skips willTerminate.
+        signal(SIGTERM, SIG_IGN)
+        let term = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        term.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.host.stop() }
+            exit(0)
+        }
+        term.resume()
+        sigterm = term
         panels.model = self
         // Resolve the login-shell PATH off the main thread before anything needs it (agent CLIs, uv).
         DispatchQueue.global(qos: .userInitiated).async { _ = AgentRunner.loginPath }
@@ -212,7 +230,66 @@ final class AppModel: MCPContext {
     }
 
     func randomizeSlug() async {
-        config.slug = await RelayClient.randomName(baseURL: config.relayURL) ?? Self.localSlug()
+        // Only a self-hosted relay is up before going live; otherwise pick a name locally.
+        let fromRelay = config.linkMode == .custom ? await RelayClient.randomName(baseURL: config.relayURL) : nil
+        config.slug = fromRelay ?? Self.localSlug()
+    }
+
+    /// Where the presenter connects and what goes in the QR code, per link mode. Starts the relay (and the
+    /// public link) on this Mac unless the presenter uses their own relay.
+    private func prepareLink() async throws -> (relay: String, join: String?) {
+        switch config.linkMode {
+        case .custom:
+            let base = config.relayURL.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard !base.isEmpty else { throw LinkError.noCustomRelay }
+            return (base, base)
+        case .wifi:
+            guard Lang.lanIP() != nil else { throw LinkError.noNetwork }
+            try await host.startRelay()
+            return (host.localBase, host.joinBase)
+        case .publicLink:
+            try await host.startRelay()
+            host.startTunnel()
+            return (host.localBase, host.joinBase)
+        }
+    }
+
+    enum LinkError: LocalizedError {
+        case noNetwork, noCustomRelay
+        var errorDescription: String? {
+            switch self {
+            case .noNetwork: "This Mac isn't on a Wi-Fi network. Join one (or a phone's hotspot), or use Public link."
+            case .noCustomRelay: "Enter your relay's address, e.g. https://relay.example.com."
+            }
+        }
+    }
+
+    /// One line about how phones are reaching the room right now; `warn` when it's degraded.
+    var linkStatus: (text: String, warn: Bool)? {
+        guard isLive else { return nil }
+        switch config.linkMode {
+        case .custom: return nil
+        case .wifi: return ("Wi-Fi only: phones on this network can join", false)
+        case .publicLink:
+            switch tunnel {
+            case .off, .connecting:
+                return ("Opening the public link… phones on this Wi-Fi can join meanwhile", true)
+            case .up:
+                if attendees >= QuickTunnel.capacityWarning {
+                    return ("Public link · \(attendees) here, near the free link's ~200-phone limit", true)
+                }
+                return ("Public link: phones can join from any network", false)
+            case let .down(why):
+                return ("Wi-Fi only: \(why). Retrying the public link…", true)
+            }
+        }
+    }
+
+    /// The tunnel came up, dropped or moved to a new hostname: point the QR code at what works now.
+    private func hostChanged() {
+        tunnel = host.tunnel
+        guard isLive, config.linkMode != .custom, let slug = room?.slug else { return }
+        joinURL = host.joinBase.map { "\($0)/m/\(slug)" }
     }
 
     func goLive() async {
@@ -222,7 +299,8 @@ final class AppModel: MCPContext {
         trace("goLive: \(config.slug) via \(config.relayURL)")
         defer { isStarting = false }
         do {
-            let client = try RelayClient(baseURL: config.relayURL)
+            let link = try await prepareLink()
+            let client = try RelayClient(baseURL: link.relay)
             let slug = config.slug.lowercased().trimmingCharacters(in: .whitespaces)
             let resp = try await client.createRoom(.init(
                 slug: slug, title: config.title, presenterName: config.presenterName,
@@ -230,9 +308,8 @@ final class AppModel: MCPContext {
                 llmEnabled: llmEnabled, presenterToken: config.tokens[slug]))
             config.tokens[slug] = resp.presenterToken
             room = resp.room
-            // QR must use the address phones can reach (what the presenter configured), not our loopback.
-            let publicBase = config.relayURL.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            joinURL = "\(publicBase)/m/\(slug)"
+            // QR must use the address phones can reach, never our loopback.
+            joinURL = link.join.map { "\($0)/m/\(slug)" }
             client.onState = { [weak self] s in self?.relayState = s }
             client.onMessage = { [weak self] m in self?.handle(m) }
             client.connect(slug: slug, token: resp.presenterToken)
@@ -241,6 +318,7 @@ final class AppModel: MCPContext {
             panels.showQR()
             if ProcessInfo.processInfo.environment["LALAAI_NO_MIC"] == nil { await startTranscription() }
         } catch {
+            host.stop()
             lastError = error.localizedDescription
         }
     }
@@ -249,6 +327,7 @@ final class AppModel: MCPContext {
         await stopTranscription()
         relay?.disconnect()
         relay = nil
+        host.stop()
         room = nil
         joinURL = nil
         questions = []

@@ -62,6 +62,7 @@
 				A10000000000000000000041 /* Sources */,
 				A10000000000000000000010 /* Frameworks */,
 				A10000000000000000000042 /* Resources */,
+				A10000000000000000000043 /* Bundle PWA */,
 			);
 			buildRules = (
 			);
@@ -115,6 +116,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A10000000000000000000043 /* Bundle PWA */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle PWA";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Standalone hosting serves the attendee PWA from the app bundle (Resources/pwa).\n# Build it first: pnpm -C web/pwa build  (output: web/pwa/dist)\nPWA=\"$SRCROOT/../../web/pwa/dist\"\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/pwa\"\nif [ -f \"$PWA/index.html\" ]; then\n  mkdir -p \"$DEST\"\n  rsync -a --delete \"$PWA/\" \"$DEST/\"\nelse\n  echo \"warning: web/pwa/dist is missing: run 'pnpm -C web/pwa build' so on-device hosting can serve the attendee app\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000041 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -138,7 +161,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "La Laai";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "La Laai connects to the relay that sends captions to your audience's phones.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "La Laai hosts your talk on this Wi-Fi or hotspot so your audience's phones can join.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "La Laai transcribes your talk on-device so your audience can read it live in their language.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "La Laai uses on-device speech recognition to caption your talk.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -166,7 +189,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "La Laai";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "La Laai connects to the relay that sends captions to your audience's phones.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "La Laai hosts your talk on this Wi-Fi or hotspot so your audience's phones can join.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "La Laai transcribes your talk on-device so your audience can read it live in their language.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "La Laai uses on-device speech recognition to caption your talk.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

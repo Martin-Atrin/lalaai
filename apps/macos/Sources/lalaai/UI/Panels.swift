@@ -271,6 +271,9 @@ struct QRPanelView: View {
                     }
                     PanelText(text: model.roomLangs.map(Lang.flag).joined(separator: " ") + (model.attendees > 0 ? "  ·  \(model.attendees) here" : ""),
                               size: 13, weight: .semibold, secondary: true)
+                    if let st = model.linkStatus, st.warn {
+                        PanelText(text: st.text, size: 12, weight: .semibold, secondary: true, alignment: .center)
+                    }
                 } else {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }

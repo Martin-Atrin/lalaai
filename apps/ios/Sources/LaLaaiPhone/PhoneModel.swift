@@ -4,7 +4,10 @@ import UIKit
 
 /// iPhone presenter settings (persisted).
 struct PhoneConfig: Codable, Equatable {
-    var relayURL = hostedRelayURL
+    /// The free iPhone app hosts on Wi-Fi/hotspot (`.wifi`) or uses a self-hosted relay (`.custom`).
+    var linkMode: LinkMode = .wifi
+    /// Self-hosted relay, used when `linkMode == .custom`.
+    var relayURL = ""
     var presenterName = UIDevice.current.name
     var title = "My talk"
     var slug = ""
@@ -15,6 +18,27 @@ struct PhoneConfig: Codable, Equatable {
     var captionLang = ""
 
     var presenterLang: String { Lang.fromSpeechLocale(presenterLocale) }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = PhoneConfig()
+        let savedURL = try? c.decode(String.self, forKey: .relayURL)
+        var link = LinkMigration.phone(legacyRelayURL: savedURL)
+        if let mode = try? c.decode(LinkMode.self, forKey: .linkMode) { link = .init(mode: mode, relayURL: savedURL ?? "") }
+        link = LinkMigration.sanitize(link, publicLinkAvailable: false)
+        linkMode = link.mode
+        relayURL = link.relayURL
+        presenterName = (try? c.decode(String.self, forKey: .presenterName)) ?? d.presenterName
+        title = (try? c.decode(String.self, forKey: .title)) ?? d.title
+        slug = (try? c.decode(String.self, forKey: .slug)) ?? d.slug
+        presenterLocale = (try? c.decode(String.self, forKey: .presenterLocale)) ?? d.presenterLocale
+        targetLangs = (try? c.decode([String].self, forKey: .targetLangs)) ?? d.targetLangs
+        tokens = (try? c.decode([String: String].self, forKey: .tokens)) ?? d.tokens
+        additiveCaptions = (try? c.decode(Bool.self, forKey: .additiveCaptions)) ?? d.additiveCaptions
+        captionLang = (try? c.decode(String.self, forKey: .captionLang)) ?? d.captionLang
+    }
 
     private static let key = "lalaai.phone.config.v1"
     static func load() -> PhoneConfig {
@@ -59,6 +83,9 @@ final class PhoneModel {
     var downloadingPairs = false
 
     @ObservationIgnored private var relay: RelayClient?
+    /// The relay this iPhone hosts in Wi-Fi/hotspot mode.
+    @ObservationIgnored private var host: EmbeddedRelay?
+    @ObservationIgnored private var hostPort: UInt16 = 0
     @ObservationIgnored private let translator = Translator()
     @ObservationIgnored private var engine: AppleSpeechEngine?
     @ObservationIgnored private var segId = Int(Date().timeIntervalSince1970) * 100
@@ -114,7 +141,47 @@ final class PhoneModel {
     }
 
     func randomizeSlug() async {
-        config.slug = await RelayClient.randomName(baseURL: config.relayURL) ?? Self.localSlug()
+        let fromRelay = config.linkMode == .custom ? await RelayClient.randomName(baseURL: config.relayURL) : nil
+        config.slug = fromRelay ?? Self.localSlug()
+    }
+
+    enum LinkError: LocalizedError {
+        case noNetwork, noCustomRelay
+        var errorDescription: String? {
+            switch self {
+            case .noNetwork: "Join a Wi-Fi network or turn on Personal Hotspot so phones can reach this iPhone."
+            case .noCustomRelay: "Enter your relay's address, e.g. https://relay.example.com."
+            }
+        }
+    }
+
+    /// Where the presenter connects and the base of the QR link. Wi-Fi mode starts the relay on this iPhone.
+    private func prepareLink() async throws -> (relay: String, join: String) {
+        switch config.linkMode {
+        case .custom:
+            let base = config.relayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+            guard !base.isEmpty else { throw LinkError.noCustomRelay }
+            return (base, base)
+        case .wifi, .publicLink:
+            guard let ip = Lang.lanIP() else { throw LinkError.noNetwork }
+            if host == nil {
+                let pwa = Bundle.main.resourceURL?.appending(path: "pwa")
+                var lastError: Error?
+                for p in [LinkMode.localPort, 0] {
+                    let r = EmbeddedRelay(options: .init(port: p, bindAllInterfaces: true, staticDir: pwa))
+                    do { hostPort = try await r.start(); host = r; break } catch { lastError = error }
+                }
+                if host == nil { throw lastError ?? LinkError.noNetwork }
+            }
+            return ("http://127.0.0.1:\(hostPort)", "http://\(ip):\(hostPort)")
+        }
+    }
+
+    /// Back in the foreground: iOS may have reclaimed the listening socket, and the Wi-Fi/hotspot address can move.
+    func resumeHosting() async {
+        guard let host, let slug = room?.slug else { return }
+        if !host.isListening { _ = try? await host.relisten() }
+        if let ip = Lang.lanIP() { joinURL = "http://\(ip):\(hostPort)/m/\(slug)" }
     }
 
     // MARK: session
@@ -125,7 +192,8 @@ final class PhoneModel {
         lastError = nil
         defer { isStarting = false }
         do {
-            let client = try RelayClient(baseURL: config.relayURL)
+            let link = try await prepareLink()
+            let client = try RelayClient(baseURL: link.relay)
             let slug = config.slug.lowercased().trimmingCharacters(in: .whitespaces)
             let resp = try await client.createRoom(.init(
                 slug: slug, title: config.title, presenterName: config.presenterName,
@@ -133,7 +201,7 @@ final class PhoneModel {
                 llmEnabled: false, presenterToken: config.tokens[slug]))
             config.tokens[slug] = resp.presenterToken
             room = resp.room
-            joinURL = "\(config.relayURL.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")))/m/\(slug)"
+            joinURL = "\(link.join)/m/\(slug)"
             client.onState = { [weak self] s in self?.relayState = s }
             client.onMessage = { [weak self] m in self?.handle(m) }
             client.connect(slug: slug, token: resp.presenterToken)
@@ -141,6 +209,8 @@ final class PhoneModel {
             UIApplication.shared.isIdleTimerDisabled = true // keep capturing while you talk
             await startMic()
         } catch {
+            host?.stop()
+            host = nil
             lastError = error.localizedDescription
         }
     }
@@ -149,6 +219,8 @@ final class PhoneModel {
         await stopMic()
         relay?.disconnect()
         relay = nil
+        host?.stop()
+        host = nil
         room = nil
         joinURL = nil
         questions = []

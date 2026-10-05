@@ -13,7 +13,7 @@
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSMicrophoneUsageDescription</key><string>lalaai transcribes your talk on-device so your audience can read it live in their language.</string>
-  <key>NSLocalNetworkUsageDescription</key><string>lalaai connects to the relay server that sends your captions to the audience's phones.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>La Laai hosts your talk on this network so your audience's phones can join, or connects to your own relay.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>lalaai uses on-device speech recognition to caption your talk.</string>
 </dict>
 </plist>

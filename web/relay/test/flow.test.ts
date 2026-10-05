@@ -6,7 +6,9 @@ const BASE = `http://127.0.0.1:${PORT}`;
 let proc: Subprocess;
 
 beforeAll(async () => {
-  proc = Bun.spawn(["bun", "src/server.ts"], { env: { ...process.env, PORT: String(PORT), HOST: "127.0.0.1" }, stdout: "ignore" });
+  // RELAY_CMD=<path to lalaai-relay> runs the same suite against the Swift relay embedded in the apps.
+  const cmd = process.env.RELAY_CMD ? [process.env.RELAY_CMD] : ["bun", "src/server.ts"];
+  proc = Bun.spawn(cmd, { env: { ...process.env, PORT: String(PORT), HOST: "127.0.0.1" }, stdout: "ignore" });
   for (let i = 0; i < 50; i++) {
     try { if ((await fetch(`${BASE}/api/health`)).ok) return; } catch {}
     await Bun.sleep(100);

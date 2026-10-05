@@ -3,9 +3,6 @@ import Translation
 
 // Shared by the macOS and iOS presenter apps (symlinked into each target as Shared/).
 
-/// Hosted relay (Railway). Phones reach it from anywhere over HTTPS.
-let hostedRelayURL = "https://lalaai-web-production.up.railway.app"
-
 enum Lang {
     static func base(_ id: String) -> String {
         String(id.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).first ?? "en")
@@ -85,7 +82,7 @@ enum Lang {
         return codes.sorted { displayName($0) < displayName($1) }
     }
 
-    /// Mac's LAN IPv4 address, so phones on the same Wi-Fi can reach a locally running relay.
+    /// This device's LAN IPv4 address, so phones on the same Wi-Fi can reach a relay running here.
     static func lanIP() -> String? {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
@@ -95,11 +92,15 @@ enum Lang {
             let ifa = p.pointee
             guard let addr = ifa.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET) else { continue }
             let name = String(cString: ifa.ifa_name)
-            guard name.hasPrefix("en") else { continue }
+            // en* = Wi-Fi/Ethernet. bridge* = the iPhone's Personal Hotspot (172.20.10.1) or a Mac's Internet
+            // Sharing; only used when there's no Wi-Fi address, so a VM bridge never wins over Wi-Fi.
+            guard name.hasPrefix("en") || name.hasPrefix("bridge") else { continue }
             var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             getnameinfo(addr, socklen_t(addr.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST)
-            candidates.append((name, String(cString: host)))
+            let ip = String(cString: host)
+            guard !ip.hasPrefix("169.254.") else { continue } // link-local: no DHCP, phones can't reach it
+            candidates.append((name, ip))
         }
-        return candidates.sorted { $0.0 < $1.0 }.first?.1
+        return candidates.sorted { ($0.0.hasPrefix("en") ? 0 : 1, $0.0) < ($1.0.hasPrefix("en") ? 0 : 1, $1.0) }.first?.1
     }
 }

@@ -150,7 +150,7 @@ private struct SessionHero: View {
                 infoTag("mic.fill", Lang.name(model.config.presenterLang).components(separatedBy: " · ").first ?? "")
                 infoTag("globe", model.config.targetLangs.map(Lang.flag).joined(separator: " "))
                 infoTag("sparkles", model.config.llmProvider == .none ? "AI off" : model.config.llmProvider.label)
-                infoTag("server.rack", model.config.relayURL == hostedRelayURL ? "La Laai Cloud" : "Custom relay")
+                infoTag(model.config.linkMode.icon, model.config.linkMode.label)
             }
         }
     }
@@ -178,6 +178,12 @@ private struct SessionHero: View {
                             Label(url, systemImage: "link").font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
                         }
                         .buttonStyle(.plain).foregroundStyle(Color.brandAqua).help("Copy join link")
+                    }
+                    if let st = model.linkStatus {
+                        Label(st.text, systemImage: st.warn ? "exclamationmark.triangle.fill" : (model.config.linkMode == .wifi ? "wifi" : "globe"))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(st.warn ? Color.orange : Color.white.opacity(0.7))
+                            .lineLimit(2)
                     }
                 }
                 Spacer()
@@ -538,21 +544,46 @@ private struct RelayCard: View {
 
     var body: some View {
         @Bindable var model = model
-        Card(title: "Relay", icon: "antenna.radiowaves.left.and.right", subtitle: "Where phones connect") {
+        Card(title: "Link", icon: "antenna.radiowaves.left.and.right", subtitle: "How phones reach you") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    Chip(label: "La Laai Cloud", systemImage: "cloud.fill", selected: model.config.relayURL == hostedRelayURL) {
-                        model.config.relayURL = hostedRelayURL
-                    }
-                    if let ip = Lang.lanIP() {
-                        let local = "http://\(ip):8787"
-                        Chip(label: "This Mac (Wi-Fi)", systemImage: "laptopcomputer", selected: model.config.relayURL == local) {
-                            model.config.relayURL = local
+                    ForEach(LinkMode.allCases) { mode in
+                        Chip(label: mode.label, systemImage: mode.icon, selected: model.config.linkMode == mode) {
+                            model.config.linkMode = mode
                         }
                     }
                 }
-                BigField(placeholder: "https://…", text: $model.config.relayURL, icon: "link", mono: true)
+                Text(model.config.linkMode.help)
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if model.config.linkMode == .custom {
+                    BigField(placeholder: "https://relay.example.com", text: $model.config.relayURL, icon: "link", mono: true)
+                } else if model.config.linkMode == .wifi, Lang.lanIP() == nil {
+                    Label("This Mac isn't on a Wi-Fi network right now.", systemImage: "wifi.exclamationmark")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.orange)
+                }
             }
+        }
+    }
+}
+
+extension LinkMode {
+    var icon: String {
+        switch self {
+        case .publicLink: "globe"
+        case .wifi: "wifi"
+        case .custom: "server.rack"
+        }
+    }
+
+    var help: String {
+        switch self {
+        case .publicLink:
+            "Runs on this Mac and opens a free Cloudflare link, so phones join from any network. No account needed. If Cloudflare can't be reached, phones on your Wi-Fi can still join."
+        case .wifi:
+            "Runs on this Mac. Phones on the same Wi-Fi (or a phone hotspot this Mac is on) join. Nothing leaves the local network."
+        case .custom:
+            "Use a relay you host yourself (web/ in the La Laai repository)."
         }
     }
 }

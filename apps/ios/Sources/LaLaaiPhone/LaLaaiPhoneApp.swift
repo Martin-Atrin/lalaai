@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct LaLaaiPhoneApp: App {
     @State private var model = PhoneModel()
+    @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
             Group {
@@ -11,6 +12,9 @@ struct LaLaaiPhoneApp: App {
             }
             .environment(model)
             .tint(.brandPrimary)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.resumeHosting() } }
         }
     }
 }
@@ -78,15 +82,22 @@ struct SetupScreen: View {
                     }
 
                     card {
-                        Text("Relay").font(.headline)
-                        Picker("Relay", selection: $model.config.relayURL) {
-                            Text("La Laai Cloud").tag(hostedRelayURL)
-                            if model.config.relayURL != hostedRelayURL { Text(model.config.relayURL).tag(model.config.relayURL) }
+                        Text("Link").font(.headline)
+                        Picker("Link", selection: $model.config.linkMode) {
+                            Text(LinkMode.wifi.label).tag(LinkMode.wifi)
+                            Text(LinkMode.custom.label).tag(LinkMode.custom)
                         }
                         .pickerStyle(.segmented)
-                        TextField("https://…", text: $model.config.relayURL)
-                            .font(.system(.footnote, design: .monospaced))
-                            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                        if model.config.linkMode == .custom {
+                            Text("A relay you host yourself (web/ in the La Laai repository).")
+                                .font(.footnote).foregroundStyle(.secondary)
+                            TextField("https://relay.example.com", text: $model.config.relayURL)
+                                .font(.system(.footnote, design: .monospaced))
+                                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                        } else {
+                            Text("This iPhone hosts the room. Phones on the same Wi-Fi, or on this iPhone's Personal Hotspot, scan and join.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
                     }
 
                     if let err = model.lastError {
@@ -209,6 +220,10 @@ private struct QRTab: View {
                     .shadow(color: .black.opacity(0.1), radius: 16, y: 6)
                     .padding(.horizontal, 32)
                 Text(url).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                if model.config.linkMode == .wifi {
+                    Label("Phones must be on this Wi-Fi or your hotspot. Keep La Laai open while you talk.", systemImage: "wifi")
+                        .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.horizontal, 32)
+                }
             }
             Text(model.roomLangs.map(Lang.flag).joined(separator: " ")).font(.title2)
             Spacer()

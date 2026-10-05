@@ -17,5 +17,19 @@ let package = Package(
                 .linkedFramework("Network"),
             ]
         ),
+        // The embedded relay (apps/shared/Relay, symlinked) as a CLI: conformance tests run web/relay's suite against it.
+        .executableTarget(
+            name: "lalaai-relay",
+            path: "Sources/lalaai-relay",
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            linkerSettings: [.linkedFramework("Network")]
+        ),
+        // `swift test`: config migration, tunnel output parsing.
+        .testTarget(
+            name: "lalaaiTests",
+            dependencies: ["lalaai"],
+            path: "Tests/lalaaiTests",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )
