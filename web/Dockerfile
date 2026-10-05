@@ -1,4 +1,4 @@
-# Relay + built PWA in one small image — this is everything that gets deployed (Railway). Build context: web/
+# Relay + built PWA in one small image — everything a self-hosted relay needs. Build context: web/
 FROM node:22-alpine AS pwa
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable

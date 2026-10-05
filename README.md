@@ -56,7 +56,7 @@ In Thai, **ละลาย (la‑laai) means *to melt*.** La Laai melts the barr
 └──────────────────────────┬──────────────────────────────┘
                  WebSocket │ captions, translations, moderation, icebreakers
                            ▼
-        ┌──────── Relay (the only deployed part) ────────┐
+        ┌─── Relay (inside the app, or self-hosted) ─────┐
         │ rooms · per-language fan-out · Q&A · likes ·   │
         │ anonymous questions · meet matching · PWA host │
         └────────────────────────┬───────────────────────┘
@@ -76,7 +76,7 @@ In Thai, **ละลาย (la‑laai) means *to melt*.** La Laai melts the barr
 ## Repository layout: what's deployed vs. what's app source
 
 ```
-web/                ← DEPLOYED. The only thing that runs on a server (Railway / any Docker host)
+web/                ← SELF-HOSTABLE relay. Optional: the apps embed the same relay (apps/shared/Relay)
   relay/            Bun WebSocket relay: rooms, fan-out, Q&A, anonymity, meet matching (+ tests)
   pwa/              Attendee web app (Vite + Preact), built into web/pwa/dist and served by the relay
   shared/           protocol.ts: the wire contract, the single source of truth
@@ -105,7 +105,18 @@ Attendees need nothing: they scan the QR code.
 
 ## Getting started
 
-### Relay + attendee web app (deploy)
+### How phones connect
+
+La Laai runs no server of its own. Pick a link mode in the app:
+
+- **Public link** (Mac, default): the Mac hosts the room and opens a free Cloudflare quick tunnel
+  (`https://….trycloudflare.com`, no account). Phones join from any network. `cloudflared` is bundled; you install
+  nothing. If Cloudflare is unreachable, the QR falls back to your Wi-Fi address and the link is retried.
+  Quick tunnels suit meetups (roughly 200 phones).
+- **Wi-Fi / hotspot** (Mac and iPhone): the device hosts the room; phones on the same Wi-Fi or hotspot join.
+- **Custom relay**: a relay you host yourself (below).
+
+### Self-hosting the relay (optional)
 
 ```bash
 pnpm -C web/pwa install && pnpm -C web/pwa build
@@ -114,7 +125,9 @@ pnpm -C web/pwa install && pnpm -C web/pwa build
 bun web/relay/src/server.ts
 ```
 
-That runs on `:8787`, and phones on the same Wi‑Fi can join. For real events, deploy `web/` behind HTTPS. With Railway, run `railway up web --path-as-root` from the repo root (or `pnpm deploy:web`): the Dockerfile in `web/` builds the PWA and runs the relay. Set `PUBLIC_URL` if you use a custom domain.
+That serves the relay and attendee app on `:8787`. For a public server, build `web/Dockerfile` (build context
+`web/`) on any Docker host behind HTTPS, set `PUBLIC_URL` to your domain, and enter that URL as **Custom relay**.
+See [web/README.md](web/README.md).
 
 ### Mac presenter app
 
@@ -124,7 +137,7 @@ Requires macOS 26 on Apple Silicon.
 apps/macos/build-app.sh && open apps/macos/build/lalaai.app
 ```
 
-1. Choose your language, audience languages and relay (**La Laai Cloud** or **This Mac**), then **Go live**.
+1. Choose your language, audience languages and link (**Public link**, **Wi-Fi / hotspot** or **Custom relay**), then **Go live**.
 2. The QR, Q&A and caption windows float above fullscreen Keynote, PowerPoint or Google Slides. Hover a window for its style (Glass / Solid / Clear with outlined text), caption mode and size controls, or drag its corner to resize.
 3. Global shortcuts work from any app:
 
@@ -185,13 +198,21 @@ bun scripts/e2e-questions.ts
 ```bash
 bun scripts/e2e-transcript.ts
 ```
+```bash
+bun scripts/e2e-public-link.ts
+```
+```bash
+cd apps/macos && swift test
+```
 
 - `bun test` covers the relay protocol, anonymity and matching.
 - `e2e-desktop.ts` runs Q&A, a match and MCP agent icebreakers.
 - `e2e-questions.ts` sends questions in es and th and checks the presenter reads them in English.
 - `e2e-transcript.ts` streams live audio through the pipeline to a phone.
+- `e2e-public-link.ts` has the app host a Public link; a phone joins through the tunnel URL, the tunnel is killed and recovers, and an unreachable Cloudflare falls back to Wi-Fi. It uses the real quick tunnel and falls back to `scripts/fake-cloudflared.ts` when trycloudflare.com is blocked (`E2E_TUNNEL=real|fake` to force).
+- `swift test` covers settings migration and tunnel log parsing; `RELAY_CMD=apps/macos/.build/debug/lalaai-relay bun test` (in `web/relay`) runs the relay suite against the embedded Swift relay.
 
-The e2e scripts launch the real Mac app headless (`--autolive`, `LALAAI_*` env overrides, its own MCP port) against a relay on `:8787`. `E2E_PROVIDER=codex E2E_MODEL=gpt-5.5` runs the icebreaker flow with a real agent.
+The e2e scripts launch the real Mac app headless (`--autolive`, `LALAAI_*` env overrides, its own MCP port) against a relay on `:8787` (Custom relay mode). `E2E_PROVIDER=codex E2E_MODEL=gpt-5.5` runs the icebreaker flow with a real agent.
 
 ## Credits
 

@@ -1,6 +1,6 @@
-# web/ — the deployed part
+# web/ — the self-hostable relay
 
-Everything in this folder is what runs on a server. Nothing else in the repo is deployed.
+La Laai runs no server of its own. This folder is the relay for people who want to host one; the Mac and iPhone apps embed the same relay (apps/shared/Relay).
 
 | Path | What |
 |---|---|
@@ -9,15 +9,9 @@ Everything in this folder is what runs on a server. Nothing else in the repo is 
 | `shared/protocol.ts` | The wire contract. `apps/shared/Protocol.swift` mirrors it for the native apps. |
 | `Dockerfile` | Builds the PWA and runs the relay in one image. Build context: this folder. |
 
-## Deploy
+## Self-hosting
 
-With Railway, run this from the repo root:
-
-```bash
-railway up web --path-as-root
-```
-
-`--path-as-root` makes `web/` the build context; without it Railway uploads the whole repo.
+Build the image from `web/` on any Docker host (Fly, Render, a VPS…), put it behind HTTPS and set `PUBLIC_URL`. Presenters enter that URL as **Custom relay**. The Mac and iPhone apps embed the same relay, so this is optional.
 
 On any Docker host:
 
